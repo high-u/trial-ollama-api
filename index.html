@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head></head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.3.nomodule.min.js"></script>
+</head>
+<body>
+
+<script>
+
+
+
+const go = () => {
+  // console.log(counter.val);
+  // counter.val += "bbb";
+  // console.log(counter.val);
+  // return 0;
+  const url = "http://localhost:11434/api/generate";
+  const data = {
+    model: "phi4:latest",
+    prompt: "'Hello World.' を大きく表示する HTML を書いてください。",
+  }
+
+  // 元の画像を取得
+  fetch(url, {
+    method: 'POST',
+    htaders: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  })
+  // 本体を ReadableStream として取得
+  .then((response) => {
+    const reader = response.body.getReader();
+    return new ReadableStream({
+      start(controller) {
+        return pump();
+        function pump() {
+          return reader.read().then(({ done, value }) => {
+            // データを消費する必要がなくなったら、ストリームを閉じる
+            if (done) {
+              controller.close();
+              return;
+            }
+            const text = new TextDecoder().decode(value);
+            // console.log(text);
+            const j = JSON.parse(text);
+            counter.val += j.response;
+
+            if (j.done) {
+              console.log("完了");
+            }
+
+            // 次のデータチャンクを対象のストリームのキューに入れる
+            controller.enqueue(value);
+            return pump();
+          });
+        }
+      },
+    });
+  })
+  // 新しいレスポンスをストリームの外に作成
+  .then((stream) => new Response(stream))
+  // レスポンスのオブジェクト URL を作成
+  .then((response) => {
+    console.log(response)
+    response.blob()
+  })
+  // .then((blob) => URL.createObjectURL(blob))
+  // Update image
+  // .then((url) => console.log((image.src = url)))
+  .catch((err) => console.error(err));
+}
+
+const {button, div, input, sup, textarea, pre} = van.tags
+const counter = van.state("")
+// van.derive(() => console.log(`Counter: ${counter.val}`))
+const counterSquared = van.derive(() => counter.val * counter.val)
+const dom1 = div(pre(counter))
+// const dom5 = textarea({value: counter, rows: 50, cols: 100, wrap: "soft"})
+const incrementBtn = button({onclick: go}, "Go")
+
+van.add(document.body, incrementBtn, dom1);
+
+</script>
+</body>
+
+</body>
+</html>
