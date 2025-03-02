@@ -10,79 +10,101 @@
 
 <script>
 
-
-
-const go = () => {
-  // console.log(counter.val);
-  // counter.val += "bbb";
-  // console.log(counter.val);
-  // return 0;
-  const url = "http://localhost:11434/api/generate";
-  const data = {
-    model: "phi4:latest",
-    prompt: "'Hello World.' を大きく表示する HTML を書いてください。",
+(async () => {
+  const load = async () => {
+    const url = "http://localhost:11434/api/tags";
+    const tags = await fetch(url);
+    const tagModels = await tags.json();
+    return tagModels.models.map(e => e.model);
   }
 
-  // 元の画像を取得
-  fetch(url, {
-    method: 'POST',
-    htaders: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-  // 本体を ReadableStream として取得
-  .then((response) => {
-    const reader = response.body.getReader();
-    return new ReadableStream({
-      start(controller) {
-        return pump();
-        function pump() {
-          return reader.read().then(({ done, value }) => {
-            // データを消費する必要がなくなったら、ストリームを閉じる
-            if (done) {
-              controller.close();
-              return;
-            }
-            const text = new TextDecoder().decode(value);
-            // console.log(text);
-            const j = JSON.parse(text);
-            counter.val += j.response;
+  const go = () => {
 
-            if (j.done) {
-              console.log("完了");
-            }
+    console.log(prompt)
 
-            // 次のデータチャンクを対象のストリームのキューに入れる
-            controller.enqueue(value);
-            return pump();
-          });
-        }
+    // console.log(counter.val);
+    // counter.val += "bbb";
+    // console.log(counter.val);
+    // return 0;
+    const url = "http://localhost:11434/api/generate";
+    const data = {
+      model: "qwen2.5-coder-7b-instruct-q2_k:v1",
+      prompt: prompt.val,
+    }
+
+    // 元の画像を取得
+    fetch(url, {
+      method: 'POST',
+      htaders: {
+        'Content-Type': 'application/json',
       },
-    });
-  })
-  // 新しいレスポンスをストリームの外に作成
-  .then((stream) => new Response(stream))
-  // レスポンスのオブジェクト URL を作成
-  .then((response) => {
-    console.log(response)
-    response.blob()
-  })
-  // .then((blob) => URL.createObjectURL(blob))
-  // Update image
-  // .then((url) => console.log((image.src = url)))
-  .catch((err) => console.error(err));
-}
+      body: JSON.stringify(data),
+    })
+    // 本体を ReadableStream として取得
+    .then((response) => {
+      const reader = response.body.getReader();
+      return new ReadableStream({
+        start(controller) {
+          return pump();
+          function pump() {
+            return reader.read().then(({ done, value }) => {
+              // データを消費する必要がなくなったら、ストリームを閉じる
+              if (done) {
+                controller.close();
+                return;
+              }
+              const text = new TextDecoder().decode(value);
+              // console.log(text);
+              const j = JSON.parse(text);
+              counter.val += j.response;
 
-const {button, div, input, sup, textarea, pre} = van.tags
-const counter = van.state("")
-// van.derive(() => console.log(`Counter: ${counter.val}`))
-const counterSquared = van.derive(() => counter.val * counter.val)
-const dom1 = div(pre(counter))
-// const dom5 = textarea({value: counter, rows: 50, cols: 100, wrap: "soft"})
-const incrementBtn = button({onclick: go}, "Go")
+              if (j.done) {
+                console.log("完了");
+              }
 
-van.add(document.body, incrementBtn, dom1);
+              // 次のデータチャンクを対象のストリームのキューに入れる
+              controller.enqueue(value);
+              return pump();
+            });
+          }
+        },
+      });
+    })
+    // 新しいレスポンスをストリームの外に作成
+    .then((stream) => new Response(stream))
+    // レスポンスのオブジェクト URL を作成
+    .then((response) => {
+      console.log(response)
+      response.blob()
+    })
+    // .then((blob) => URL.createObjectURL(blob))
+    // Update image
+    // .then((url) => console.log((image.src = url)))
+    .catch((err) => console.error(err));
+  }
+
+  const {button, div, input, sup, textarea, pre, ul, li, select, option} = van.tags
+  const counter = van.state("")
+  const prompt = van.state("HTML5 の最小限の雛形を作ってください。") // 作って、だと出力が html のみ。作ってください、だと説明付き。必ずかどうかは不明。
+  // van.derive(() => console.log(`Counter: ${counter.val}`))
+  const counterSquared = van.derive(() => counter.val * counter.val)
+  const dom1 = div(pre(counter))
+  const dom5 = textarea({
+    value: prompt,
+    rows: 10,
+    cols: 100,
+    wrap: "soft",
+    oninput: (e) => (prompt.val = e.target.value),
+  })
+  const incrementBtn = button({onclick: go}, "Go")
+
+  const models = await load();
+  const modelList = select(...models.map(e => option(e)));
+
+  console.log(await load());
+
+  van.add(document.body, modelList, dom5, incrementBtn, dom1);
+})();
 
 </script>
 </body>
